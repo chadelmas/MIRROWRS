@@ -83,7 +83,7 @@ class MIRROWRSPorcessor:
         # Check inputs
         if str_watermask_tif is None:
             raise ValueError("Missing watermask GeoTiff input file")
-        if not os.path.isfile(str_watermask_tif):
+        if not str_watermask_tif.startswith("/vsis3") and not os.path.isfile(str_watermask_tif):
                 raise FileExistsError("Input watermask GeoTiff does not exist")
 
         if gdf_sections is None:

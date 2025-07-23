@@ -212,7 +212,7 @@ class WaterMaskCHM(WaterMask):
         klass.str_fpath_infile = surfwater_tif
 
         # Set watermask rasterfile
-        if not os.path.isfile(surfwater_tif):
+        if not surfwater_tif.startswith("/vsis3") and not os.path.isfile(surfwater_tif):
             _logger.error("Watermask.from_surfwater: Input tif file does not exist..")
             raise FileExistsError("Input tif file does not exist..")
 
@@ -354,7 +354,7 @@ class WidthProcessor:
         # Check inputs
         if str_watermask_tif is None:
             raise ValueError("Missing watermask GeoTiff input file")
-        if not os.path.isfile(str_watermask_tif):
+        if not str_watermask_tif.startswith("/vsis3") and not os.path.isfile(str_watermask_tif):
             raise FileExistsError("Input watermask GeoTiff does not exist")
         if str_datetime is None:
             raise ValueError("Missing scene datetime information input")
@@ -1006,11 +1006,14 @@ def process_single_scene(
     _logger.info("=== Processing watermask: " + str_watermask_tif + " === : start\n")
 
     # Watermask filename to process
-    if not os.path.isfile(str_watermask_tif):
+    if not str_watermask_tif.startswith("/vsis3") and not os.path.isfile(str_watermask_tif):
         _logger.error(
             "Watermask file '{}' seems not to exist..".format(str_watermask_tif)
         )
     # str_scn_name = os.path.basename(str_watermask_tif).split(".")[0]
+    
+    if str_watermask_tif.startswith("/vsis3"):
+        _logger.info(f"Watermamsk {str_watermask_tif} will be read from datalake")
 
     # Width processing
     try:

@@ -125,7 +125,7 @@ class WaterMask:
         klass.str_provider = str_origin
 
         # Set watermask rasterfile
-        if not os.path.isfile(watermask_tif):
+        if not watermask_tif.startswith("/vsis3") and not os.path.isfile(watermask_tif):
             raise FileExistsError("Input watermak_tif file does not exist..")
         if not watermask_tif.endswith(".tif"):
             raise FileExtensionError(message="Input file is not a .tif")
