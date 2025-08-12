@@ -26,6 +26,7 @@ derive a width estimation at said-nodes observed within the mask
 import logging
 import os
 from datetime import datetime
+import tempfile
 
 import geopandas as gpd
 import numpy as np
@@ -35,8 +36,11 @@ import shapely
 from pyproj import CRS
 from shapely.geometry import MultiPolygon
 
-from mirrowrs.constants import (FLT_LABEL_MAX_DIST, FLT_TOL_DIST_DEFAULT,
-                                FLT_TOL_LEN_DEFAULT)
+from mirrowrs.constants import (
+    FLT_LABEL_MAX_DIST,
+    FLT_TOL_DIST_DEFAULT,
+    FLT_TOL_LEN_DEFAULT,
+)
 from mirrowrs.constants import L_WM_CLEAN_ALGO, L_WM_LABEL_ALGO
 from mirrowrs.sections_reduction import reduce_section
 from mirrowrs.tools import DisjointBboxError
@@ -78,30 +82,39 @@ class MIRROWRSPorcessor:
         """
 
         # Set _logger
-        _logger = logging.getLogger("mirrowrs_processormodule.MIRROWRSPorcessor constructor")
+        _logger = logging.getLogger(
+            "mirrowrs_processormodule.MIRROWRSPorcessor constructor"
+        )
 
         # Check inputs
         if str_watermask_tif is None:
             raise ValueError("Missing watermask GeoTiff input file")
-        if not str_watermask_tif.startswith("/vsis3") and not os.path.isfile(str_watermask_tif):
-                raise FileExistsError("Input watermask GeoTiff does not exist")
+        if not str_watermask_tif.startswith("/vsis3") and not os.path.isfile(
+            str_watermask_tif
+        ):
+            raise FileExistsError("Input watermask GeoTiff does not exist")
 
         if gdf_sections is None:
             raise ValueError("Missing cross-section geometries inputs")
         if not isinstance(gdf_sections, gpd.GeoDataFrame):
-            raise TypeError("Input cross_section geometries must be stored in a geopandas.GeoDataFrame")
+            raise TypeError(
+                "Input cross_section geometries must be stored in a geopandas.GeoDataFrame"
+            )
 
         if gdf_reaches is None:
             raise ValueError("Missing reaches geometries")
         if not isinstance(gdf_reaches, gpd.GeoDataFrame):
-            raise TypeError("Input reach geometries must be stored in a geopandas.GeoDataFrame")
+            raise TypeError(
+                "Input reach geometries must be stored in a geopandas.GeoDataFrame"
+            )
 
         if not isinstance(str_provider, str):
             raise TypeError("Input watermask 'provider' attribute must be a string")
 
         if str_proj not in ["proj", "lonlat"]:
             raise NotImplementedError(
-                "coordsyst available options are 'proj' or 'lonlat'")
+                "coordsyst available options are 'proj' or 'lonlat'"
+            )
 
         # Set attributes from inputs
         self.f_watermask_in = str_watermask_tif
@@ -116,7 +129,7 @@ class MIRROWRSPorcessor:
             raise ValueError("Input attr_reachid not in reach dataset columns")
 
         # Derived attributes
-        self.scene_name = os.path.basename(self.f_watermask_in).split(".")[0]
+        self.scene_name = os.path.splitext(os.path.basename(self.f_watermask_in))[0]
 
         # Additionnal attributes computed later
         self.watermask = None
@@ -139,10 +152,14 @@ class MIRROWRSPorcessor:
             "clean": {
                 "bool_toclean": True,
                 "type_clean": "base",
-                "fpath_wrkdir": ".",
+                "fpath_wrkdir": tempfile.gettempdir(),
                 "gdf_waterbodies": None,
             },
-            "label": {"bool_tolabel": False, "type_label": "base", "fpath_wrkdir": "."},
+            "label": {
+                "bool_tolabel": False,
+                "type_label": "base",
+                "fpath_wrkdir": tempfile.gettempdir(),
+            },
             "reduce": {
                 "how": "simple",
                 "attr_locxs": "loc_xs",
@@ -181,11 +198,11 @@ class MIRROWRSPorcessor:
         )  # Convert watermask bbox to Polygon object
 
         if polygon_watermask.disjoint(polygon_sections):
-            raise DisjointBboxError("Input watermask and input cross-sections are incompatible.")
+            raise DisjointBboxError(
+                "Input watermask and input cross-sections are incompatible."
+            )
 
-        _logger.info(
-            "Watermask and cross-sections are spatially compatible : proceed."
-        )
+        _logger.info("Watermask and cross-sections are spatially compatible : proceed.")
 
     def preprocessing(self):
         """Preprocessing: load watermask, reproject sections et check bounding boxes intersections"""
@@ -202,7 +219,9 @@ class MIRROWRSPorcessor:
         # Reproject sections to watermask coordinate system
         self.gdf_reaches = self.gdf_reaches.to_crs(self.watermask.crs_epsg)
         self.gdf_sections = self.gdf_sections.to_crs(self.watermask.crs_epsg)
-        _logger.info("Reaches and corss-section reprojected onto watermask coordinate system..")
+        _logger.info(
+            "Reaches and corss-section reprojected onto watermask coordinate system.."
+        )
 
         # Check boundingbox compatibility
         self.check_bbox_compatibility()
@@ -235,12 +254,12 @@ class MIRROWRSPorcessor:
             Processing configuration
             { "clean" : { "bool_clean" : True/False,
                       "type_clean" : base/waterbodies,
-                      "fpath_wrkdir" : "."
+                      "fpath_wrkdir" : tempfile.gettempdir()
                       "gdf_waterbodies" : gdf with polygon waterbodies to clean waterbodies [optionnal]
                     },
             "label" : { "bool_label" : True/False,
                       "type_label" : base,
-                      "fpath_wrkdir" : "."
+                      "fpath_wrkdir" : tempfile.gettempdir()
                     },
             "widths" : { scenario : 0/1/10/11
                      }
@@ -316,12 +335,16 @@ class MIRROWRSPorcessor:
         )
 
         # Apply waterbodies-type cleaning if activated
-        if (dct_cfg["clean"]["gdf_waterbodies"] is not None
-            and str_type_clean == "waterbodies"):
+        if (
+            dct_cfg["clean"]["gdf_waterbodies"] is not None
+            and str_type_clean == "waterbodies"
+        ):
 
             # Check inputs
             if not isinstance(dct_cfg["clean"]["gdf_waterbodies"], gpd.GeoDataFrame):
-                raise TypeError("Reference waterbodies must be provided as a geopandas.GeoDataFrame")
+                raise TypeError(
+                    "Reference waterbodies must be provided as a geopandas.GeoDataFrame"
+                )
             gdf_tmp = dct_cfg["clean"]["gdf_waterbodies"].copy()
             gdf_waterbodies_wrk = gdf_tmp.to_crs(gdf_wm_polygons.crs)
             del gdf_tmp
@@ -398,7 +421,8 @@ class MIRROWRSPorcessor:
         self.watermask.update_label_flag(dct_label_update)
 
     def _prepare_tol_inputs(
-        self, str_input_name=None, obj_to_prepare=None, default_value=0.0):
+        self, str_input_name=None, obj_to_prepare=None, default_value=0.0
+    ):
         """Add parameters to constrain procedure used to reduce cross-sections to watermask
 
         :param str_input_name: str
@@ -469,15 +493,21 @@ class MIRROWRSPorcessor:
         gdfsub_sections_byreach = self.gdf_sections[
             self.gdf_sections[self.attr_reachid] == reach_id
         ].copy(deep=True)
-        _logger.info("Extract the cross-sections associated to the current reach ..done")
+        _logger.info(
+            "Extract the cross-sections associated to the current reach ..done"
+        )
 
         # In sections subset, keep only sections that intersect current region
         ser_bool_intersects = gdfsub_sections_byreach["geometry"].intersects(pol_region)
         gdfsub_sections_byreach_onregion = gdfsub_sections_byreach[
             ser_bool_intersects
         ].copy(deep=True)
-        _logger.info("In sections subset, keep only sections that intersect current region ..done")
-        _logger.info(f"Number of sections to reduce : {len(gdfsub_sections_byreach_onregion)}")
+        _logger.info(
+            "In sections subset, keep only sections that intersect current region ..done"
+        )
+        _logger.info(
+            f"Number of sections to reduce : {len(gdfsub_sections_byreach_onregion)}"
+        )
 
         # For remaining stations/sections, reduce their geometry to within the current region
         if len(gdfsub_sections_byreach_onregion) > 0:
@@ -500,14 +530,16 @@ class MIRROWRSPorcessor:
                         axis=1,
                     )
                 )
-                _logger.info("For remaining stations/sections, reduce their geometry to within the current region.. done")
+                _logger.info(
+                    "For remaining stations/sections, reduce their geometry to within the current region.. done"
+                )
 
             except KeyError:
 
                 _logger.info(
-                    "For remaining stations/sections, reduce their geometry to within the current region.. done")
-                _logger.info(
-                    "KeyError warning: Simplified method applied..")
+                    "For remaining stations/sections, reduce their geometry to within the current region.. done"
+                )
+                _logger.info("KeyError warning: Simplified method applied..")
                 if dct_cfg["reduce"]["how"] != "simple":
                     _logger.warning(
                         "Warning: Missing inputs use basic reduction (= method 'simple')."
@@ -584,7 +616,7 @@ class MIRROWRSPorcessor:
         )
         _logger.info("Polygons retrieved")
 
-        #TODO : case when bool_label is False
+        # TODO : case when bool_label is False
 
         l_gdfsub_sections = []
         for label, group in gdf_wm_labelled_pol.groupby(by="label").groups.items():
@@ -625,7 +657,12 @@ class MIRROWRSPorcessor:
 
         return gdf_sections_out
 
-    def postprocessing(self, dct_cfg=None, str_fpath_dir_out=".", str_fpath_wm_in=None):
+    def postprocessing(
+        self,
+        dct_cfg=None,
+        str_fpath_dir_out=tempfile.gettempdir(),
+        str_fpath_wm_in=None,
+    ):
         """Post-processing :: Reduce cross-sections and compute node-scale widths
 
         :param str_fpath_wm_in: str
@@ -641,7 +678,9 @@ class MIRROWRSPorcessor:
         """
 
         # Set _logger
-        _logger.info("mirrowrs_processormodule.MIRROWRSPorcessor.postprocessing : Start")
+        _logger.info(
+            "mirrowrs_processormodule.MIRROWRSPorcessor.postprocessing : Start"
+        )
 
         # Prepare sections
         gdf_wrk_sections = self.reduce_sections(dct_cfg)

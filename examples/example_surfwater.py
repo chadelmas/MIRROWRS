@@ -29,6 +29,7 @@ A complete example of MIRROWRS use
 import logging
 import os
 import sys
+import tempfile
 from argparse import ArgumentParser
 from datetime import datetime
 
@@ -49,10 +50,14 @@ DCT_CONFIG_O = {
     "clean": {
         "bool_clean": True,
         "type_clean": "base",
-        "fpath_wrkdir": ".",
+        "fpath_wrkdir": tempfile.gettempdir(),
         "gdf_waterbodies": None,
     },
-    "label": {"bool_label": True, "type_label": "base", "fpath_wrkdir": "."},
+    "label": {
+        "bool_label": True,
+        "type_label": "base",
+        "fpath_wrkdir": tempfile.gettempdir(),
+    },
     "reduce": {
         "how": "hydrogeom",
         "attr_nb_chan_max": "n_chan_max",
@@ -354,7 +359,9 @@ class WidthProcessor:
         # Check inputs
         if str_watermask_tif is None:
             raise ValueError("Missing watermask GeoTiff input file")
-        if not str_watermask_tif.startswith("/vsis3") and not os.path.isfile(str_watermask_tif):
+        if not str_watermask_tif.startswith("/vsis3") and not os.path.isfile(
+            str_watermask_tif
+        ):
             raise FileExistsError("Input watermask GeoTiff does not exist")
         if str_datetime is None:
             raise ValueError("Missing scene datetime information input")
@@ -362,7 +369,10 @@ class WidthProcessor:
             _ = datetime.strptime(str_datetime, "%Y%m%dT%H%M%S")
         except ValueError:
             raise ValueError(
-                "input datetime {} does not match format '%Y%m%dT%H%M%S'.".format(str_datetime))
+                "input datetime {} does not match format '%Y%m%dT%H%M%S'.".format(
+                    str_datetime
+                )
+            )
         if str_reaches_shp is None:
             raise ValueError("Missing reaches shapefile input")
         if not os.path.join(str_reaches_shp):
@@ -375,7 +385,7 @@ class WidthProcessor:
 
         # Set attributes from inputs
         self.f_watermask_in = str_watermask_tif
-        self.scene_name = os.path.basename(self.f_watermask_in).split(".")[0]
+        self.scene_name = os.path.splitext(os.path.basename(self.f_watermask_in))[0]
         self.scene_datetime = str_datetime
         self.reaches_shp = str_reaches_shp
         self.nodes_shp = str_nodes_shp
@@ -501,7 +511,11 @@ class WidthProcessor:
             raise Exception
 
     def basprocessing_ortho(
-        self, out_dir=".", str_pekel_shp=None, str_type_clean=None, str_type_label=None
+        self,
+        out_dir=tempfile.gettempdir(),
+        str_pekel_shp=None,
+        str_type_clean=None,
+        str_type_label=None,
     ):
         """Perform MIRROWRSPorcessor processing (=clean+label) - only on MIRROWRSPorcessor associated to orthogonal sections
 
@@ -552,7 +566,7 @@ class WidthProcessor:
             _logger.error("Processing (clean+label) based on orthogonal section KO ..")
             raise Exception
 
-    def basproccessing_ortho_widths(self, out_dir="."):
+    def basproccessing_ortho_widths(self, out_dir=tempfile.gettempdir()):
         """Width computation based on orthogonal sections
 
         :param out_dir: str
@@ -599,7 +613,9 @@ class WidthProcessor:
             self.bas_processor_o.gdf_sections[attr_n_chan_max] = self.gdf_nodes.loc[
                 self.bas_processor_o.gdf_sections.index, attr_n_chan_max
             ]
-            _logger.info("Add required attributes for sections reduction: nb_chan_max, done..")
+            _logger.info(
+                "Add required attributes for sections reduction: nb_chan_max, done.."
+            )
 
             attr_tolerance_dist = dct_cfg_o["reduce"]["attr_tolerance_dist"]
             attr_meandr_len = dct_cfg_o["reduce"]["attr_meander_length"]
@@ -613,7 +629,9 @@ class WidthProcessor:
                 * self.gdf_nodes.loc[self.gdf_nodes.index, attr_meandr_len]
                 / self.gdf_nodes.loc[self.gdf_nodes.index, attr_sinuosity]
             )
-            _logger.info("Add required attributes for sections reduction: tolerance_dist, done..")
+            _logger.info(
+                "Add required attributes for sections reduction: tolerance_dist, done.."
+            )
 
             _logger.info("Run bas_processor_o.postprocessing")
             gdf_widths_ortho, str_fpath_wm_out = self.bas_processor_o.postprocessing(
@@ -709,7 +727,11 @@ class WidthProcessor:
         raise Exception
 
     def processing(
-        self, out_dir=".", str_pekel_shp=None, str_type_clean=None, str_type_label=None
+        self,
+        out_dir=tempfile.gettempdir(),
+        str_pekel_shp=None,
+        str_type_clean=None,
+        str_type_label=None,
     ):
         """Produce river width derived from watermask
 
@@ -778,7 +800,7 @@ class WidthProcessor:
 
         return str_fpath_wm_tif, str_fpath_wm_out
 
-    def postprocessing(self, output_dir=".", more_outputs=False):
+    def postprocessing(self, output_dir=tempfile.gettempdir(), more_outputs=False):
         """Save processed riverwidths into files
 
         :param output_dir: str
@@ -882,7 +904,7 @@ def parse_inputs():
         "-o",
         "--outputdir",
         type=str,
-        default=".",
+        default=tempfile.gettempdir(),
         help="Full path to directory where to store logfiles and outputs.",
     )
     parser.add_argument(
@@ -952,8 +974,10 @@ def check_inputs(args):
         )
 
     if args.watermask_tif is None:
-        str_err = "Missing input arguments for single scene processing. watermask:{}".format(
-            args.watermask_tif
+        str_err = (
+            "Missing input arguments for single scene processing. watermask:{}".format(
+                args.watermask_tif
+            )
         )
         raise ValueError(str_err)
 
@@ -964,8 +988,10 @@ def check_inputs(args):
         raise ValueError(str_err)
 
     if args.nodes_shp is None:
-        str_err = "Missing input arguments for single scene processing. nodes_shp:{}".format(
-            args.nodes_shp
+        str_err = (
+            "Missing input arguments for single scene processing. nodes_shp:{}".format(
+                args.nodes_shp
+            )
         )
         raise ValueError(str_err)
 
@@ -1006,14 +1032,16 @@ def process_single_scene(
     _logger.info("=== Processing watermask: " + str_watermask_tif + " === : start\n")
 
     # Watermask filename to process
-    if not str_watermask_tif.startswith("/vsis3") and not os.path.isfile(str_watermask_tif):
+    if not str_watermask_tif.startswith("/vsis3") and not os.path.isfile(
+        str_watermask_tif
+    ):
         _logger.error(
             "Watermask file '{}' seems not to exist..".format(str_watermask_tif)
         )
     # str_scn_name = os.path.basename(str_watermask_tif).split(".")[0]
-    
+
     if str_watermask_tif.startswith("/vsis3"):
-        _logger.info(f"Watermamsk {str_watermask_tif} will be read from datalake")
+        _logger.info(f"Watermask {str_watermask_tif} will be read from datalake")
 
     # Width processing
     try:

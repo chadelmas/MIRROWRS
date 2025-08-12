@@ -22,6 +22,7 @@ Functionnality tests
 """
 
 import os
+import tempfile
 
 import geopandas as gpd
 import rasterio as rio
@@ -69,10 +70,14 @@ def example_1():
         "clean": {
             "bool_clean": False,
             "type_clean": "base",
-            "fpath_wrkdir": ".",
+            "fpath_wrkdir": tempfile.gettempdir(),
             "gdf_waterbodies": None,
         },
-        "label": {"bool_label": False, "type_label": "base", "fpath_wrkdir": "."},
+        "label": {
+            "bool_label": False,
+            "type_label": "base",
+            "fpath_wrkdir": tempfile.gettempdir(),
+        },
         "reduce": {"how": "simple", "attr_nb_chan_max": None},
         "widths": {"scenario": 0},
     }
@@ -89,7 +94,7 @@ def example_1():
     processor.preprocessing()
     processor.processing(dct_cfg_v1)
     gdf_widths, _ = processor.postprocessing(dct_cfg_v1)
-    gdf_widths.to_file(os.path.join(out_dir,"widths_example1.shp"))
+    gdf_widths.to_file(os.path.join(out_dir, "widths_example1.shp"))
 
     print("")
     print("===== MIRROWRSProcessing Example #1 = END =====")
@@ -110,10 +115,14 @@ def example_2():
         "clean": {
             "bool_clean": True,
             "type_clean": "base",
-            "fpath_wrkdir": ".",
+            "fpath_wrkdir": tempfile.gettempdir(),
             "gdf_waterbodies": None,
         },
-        "label": {"bool_label": False, "type_label": "base", "fpath_wrkdir": "."},
+        "label": {
+            "bool_label": False,
+            "type_label": "base",
+            "fpath_wrkdir": tempfile.gettempdir(),
+        },
         "widths": {"scenario": 11},
     }
 
@@ -129,7 +138,7 @@ def example_2():
     processor.preprocessing()
     processor.processing(dct_cfg_v2)
     gdf_widths, _ = processor.postprocessing(dct_cfg_v2)
-    gdf_widths.to_file(os.path.join(out_dir,"widths_example2.shp"))
+    gdf_widths.to_file(os.path.join(out_dir, "widths_example2.shp"))
 
     print("")
     print("===== MIRROWRSProcessing Example #2 = END =====")
@@ -150,10 +159,14 @@ def example_3():
         "clean": {
             "bool_clean": True,
             "type_clean": "waterbodies",
-            "fpath_wrkdir": ".",
+            "fpath_wrkdir": tempfile.gettempdir(),
             "gdf_waterbodies": gdf_waterbodies,
         },
-        "label": {"bool_label": False, "type_label": "base", "fpath_wrkdir": "."},
+        "label": {
+            "bool_label": False,
+            "type_label": "base",
+            "fpath_wrkdir": tempfile.gettempdir(),
+        },
         "widths": {"scenario": 0},
     }
 
@@ -169,7 +182,7 @@ def example_3():
     processor.preprocessing()
     processor.processing(dct_cfg_v3)
     gdf_widths, _ = processor.postprocessing(dct_cfg_v3)
-    gdf_widths.to_file(os.path.join(out_dir,"widths_example3.shp"))
+    gdf_widths.to_file(os.path.join(out_dir, "widths_example3.shp"))
 
     print("")
     print("===== MIRROWRSProcessing Example #3 = END =====")
@@ -209,7 +222,7 @@ def example_4():
     processor.preprocessing()
     processor.processing(dct_cfg_v4)
     gdf_widths, _ = processor.postprocessing(dct_cfg_v4)
-    gdf_widths.to_file(os.path.join(out_dir,"widths_example4.shp"))
+    gdf_widths.to_file(os.path.join(out_dir, "widths_example4.shp"))
 
     print("")
     print("===== MIRROWRSProcessing Example #4 = END =====")
@@ -357,7 +370,7 @@ def example_6():
 
     gdf_widths_a["reach_id"] = gdf_widths_a["reach_id"].astype(str)
     gdf_widths_a["node_id"] = gdf_widths_a["node_id"].astype(int).astype(str)
-    gdf_widths_a.to_file(os.path.join(out_dir,"widths_example6.shp"))
+    gdf_widths_a.to_file(os.path.join(out_dir, "widths_example6.shp"))
 
     print("")
     print("===== MIRROWRSProcessing Example #6 = END =====")
@@ -464,7 +477,7 @@ def example_7():
 
     gdf_widths_a["reach_id"] = gdf_widths_a["reach_id"].astype(str)
     gdf_widths_a["node_id"] = gdf_widths_a["node_id"].astype(int).astype(str)
-    gdf_widths_a.to_file(os.path.join(out_dir,"widths_example7.shp"))
+    gdf_widths_a.to_file(os.path.join(out_dir, "widths_example7.shp"))
 
     print("")
     print("===== MIRROWRSProcessing Example #7 = END =====")
@@ -568,7 +581,7 @@ def example_8():
 
     gdf_widths_a["reach_id"] = gdf_widths_a["reach_id"].astype(str)
     gdf_widths_a["node_id"] = gdf_widths_a["node_id"].astype(int).astype(str)
-    gdf_widths_a.to_file(os.path.join(out_dir,"widths_example8.shp"))
+    gdf_widths_a.to_file(os.path.join(out_dir, "widths_example8.shp"))
 
     print("")
     print("===== MIRROWRSProcessing Example #8 = END =====")
@@ -609,10 +622,10 @@ def example_9():
     gdf_sections_ortho = obj_rivergeom.draw_allreaches_sections(
         type="ortho", flt_factor_width=15.0
     )
-    gdf_sections_ortho.to_file(os.path.join(out_dir,"ex6_sections_ortho.shp"))
+    gdf_sections_ortho.to_file(os.path.join(out_dir, "ex6_sections_ortho.shp"))
 
     gdf_sections_chck = obj_rivergeom.draw_allreaches_sections(type="chck")
-    gdf_sections_chck.to_file(os.path.join(out_dir,"ex6_sections_chck.shp"))
+    gdf_sections_chck.to_file(os.path.join(out_dir, "ex6_sections_chck.shp"))
 
     # Set configs #9
     dct_cfg_v9 = {
@@ -682,7 +695,7 @@ def example_9():
 
     gdf_widths_b["reach_id"] = gdf_widths_b["reach_id"].astype(str)
     gdf_widths_b["node_id"] = gdf_widths_b["node_id"].astype(int).astype(str)
-    gdf_widths_b.to_file(os.path.join(out_dir,"widths_b_example9.shp"))
+    gdf_widths_b.to_file(os.path.join(out_dir, "widths_b_example9.shp"))
 
     print("")
     print("===== MIRROWRSProcessing Example #9 = END =====")
@@ -780,16 +793,16 @@ def example_10():
     processor_a.gdf_sections.insert(
         loc=3, column=dct_cfg_v10["reduce"]["attr_nodepx"], value=0.0
     )
-    processor_a.gdf_sections[dct_cfg_v10["reduce"]["attr_nodepx"]] = gser_proj_nodes.loc[
-        processor_a.gdf_sections.index
-    ].x
+    processor_a.gdf_sections[dct_cfg_v10["reduce"]["attr_nodepx"]] = (
+        gser_proj_nodes.loc[processor_a.gdf_sections.index].x
+    )
 
     processor_a.gdf_sections.insert(
         loc=4, column=dct_cfg_v10["reduce"]["attr_nodepy"], value=0.0
     )
-    processor_a.gdf_sections[dct_cfg_v10["reduce"]["attr_nodepy"]] = gser_proj_nodes.loc[
-        processor_a.gdf_sections.index
-    ].y
+    processor_a.gdf_sections[dct_cfg_v10["reduce"]["attr_nodepy"]] = (
+        gser_proj_nodes.loc[processor_a.gdf_sections.index].y
+    )
 
     processor_a.processing(dct_cfg_v10)
 
@@ -797,15 +810,14 @@ def example_10():
 
     gdf_widths_a["reach_id"] = gdf_widths_a["reach_id"].astype(str)
     gdf_widths_a["node_id"] = gdf_widths_a["node_id"].astype(int).astype(str)
-    gdf_widths_a.to_file(os.path.join(out_dir,"widths_example10.shp"))
+    gdf_widths_a.to_file(os.path.join(out_dir, "widths_example10.shp"))
 
     print("")
     print("===== MIRROWRSProcessing Example #10 = END =====")
 
 
 def main():
-    """Main run
-    """
+    """Main run"""
 
     # Run example 1
     try:

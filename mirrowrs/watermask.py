@@ -26,6 +26,7 @@ module watermask.py
 import logging
 import os
 from collections.abc import Iterable
+import tempfile
 
 import geopandas as gpd
 from numpy import ma
@@ -77,8 +78,7 @@ def exclude_value_from_flattened_band(npar_band_flat, value_to_exclude):
 
 
 class WaterMask:
-    """A class to manipulate watermask dataset
-    """
+    """A class to manipulate watermask dataset"""
 
     def __init__(self):
         """Class constructor"""
@@ -115,7 +115,9 @@ class WaterMask:
         """
 
         # Set _logger
-        _logger = logging.getLogger("watermask_module.WaterMask.__init__ : Instansiate from a GeoTiff file")
+        _logger = logging.getLogger(
+            "watermask_module.WaterMask.__init__ : Instansiate from a GeoTiff file"
+        )
 
         klass = WaterMask()
 
@@ -134,7 +136,8 @@ class WaterMask:
         # Set raster coordinate system
         if str_proj not in ["proj", "lonlat"]:
             raise NotImplementedError(
-                "coordsyst available options are 'proj' or 'lonlat'")
+                "coordsyst available options are 'proj' or 'lonlat'"
+            )
         klass.coordsyst = str_proj
 
         # Set raster bounding box, crs and resolution
@@ -367,17 +370,20 @@ class WaterMask:
 
         # Set _logger
         _logger = logging.getLogger("watermask_module.WaterMask.get_band")
-        _logger.info(f"Get band with bool_clean={bool_clean} and bool_label={bool_label}")
+        _logger.info(
+            f"Get band with bool_clean={bool_clean} and bool_label={bool_label}"
+        )
 
         # Initiate flat band
         if bool_label:
             npar_band_flat = (
-            np.ones((self.width * self.height,), dtype=self.dtype_label_out) * self.nodata)
+                np.ones((self.width * self.height,), dtype=self.dtype_label_out)
+                * self.nodata
+            )
         else:
             npar_band_flat = (
-                    np.ones((self.width * self.height,), dtype=self.dtypes) * self.nodata
+                np.ones((self.width * self.height,), dtype=self.dtypes) * self.nodata
             )
-
 
         # Set value in band
         if bool_clean and bool_label:
@@ -430,9 +436,11 @@ class WaterMask:
 
         # Set _logger
         _logger = logging.getLogger("watermask_module.WaterMask.get_polygons")
-        _logger.info(f"Get polygons with bool_clean={bool_clean} and bool_label={bool_label}")
+        _logger.info(
+            f"Get polygons with bool_clean={bool_clean} and bool_label={bool_label}"
+        )
 
-       # Get wm as a band
+        # Get wm as a band
         npar_band = self.get_band(bool_clean, bool_label, as_ma=True)
         _logger.info("Band retrieved")
 
@@ -481,7 +489,7 @@ class WaterMask:
         fmt="tif",
         bool_clean=True,
         bool_label=True,
-        str_fpath_dir_out=".",
+        str_fpath_dir_out=tempfile.gettempdir(),
         str_suffix=None,
     ):
         """Save the watermask in the asked format : tif/pixc/polygons + "clean/label"
@@ -535,7 +543,11 @@ class WaterMask:
         return str_fpath_wm_out
 
     def save_wm_as_tif(
-        self, bool_clean=True, bool_label=True, str_fpath_dir_out=".", str_suffix=None
+        self,
+        bool_clean=True,
+        bool_label=True,
+        str_fpath_dir_out=tempfile.gettempdir(),
+        str_suffix=None,
     ):
         """Save watermask in the input configuration as a raster GeoTiff file
 
@@ -568,7 +580,7 @@ class WaterMask:
                 raise NotADirectoryError("Given output directory does not exist")
 
         # Set output file basename
-        str_basename = self.str_fpath_infile.split("/")[-1].split(".")[0]
+        str_basename = os.path.splitext(self.str_fpath_infile.split("/")[-1])[0]
         if bool_clean:
             str_basename += "_clean"
         if bool_label:
@@ -601,7 +613,7 @@ class WaterMask:
 
         return str_fpath_wm_out_tif
 
-    def save_wm_as_pixc(self, str_fpath_dir_out="."):
+    def save_wm_as_pixc(self, str_fpath_dir_out=tempfile.gettempdir()):
         """Retrieve the watermask in its pixel-cloud like format in a shapefile with point-geometries
 
         :param str_fpath_dir_out: str
@@ -621,7 +633,7 @@ class WaterMask:
                 raise NotADirectoryError("Given output directory does not exist")
 
         # Set output file basename
-        str_basename = self.str_fpath_infile.split("/")[-1].split(".")[0]
+        str_basename = os.path.splitext(self.str_fpath_infile.split("/")[-1])[0]
 
         # Set output complete filename
         str_fpath_wm_out_pixc_shp = os.path.join(
@@ -636,7 +648,11 @@ class WaterMask:
         return str_fpath_wm_out_pixc_shp
 
     def save_wm_as_shp(
-        self, bool_clean=True, bool_label=True, str_fpath_dir_out=".", str_suffix=None
+        self,
+        bool_clean=True,
+        bool_label=True,
+        str_fpath_dir_out=tempfile.gettempdir(),
+        str_suffix=None,
     ):
         """Save watermask in the input configuration as a vectorized version in a shapefile
 
@@ -669,7 +685,7 @@ class WaterMask:
                 raise NotADirectoryError("Given output directory does not exist")
 
         # Set output file basename
-        str_basename = self.str_fpath_infile.split("/")[-1].split(".")[0]
+        str_basename = os.path.splitext(self.str_fpath_infile.split("/")[-1])[0]
         if bool_clean:
             str_basename += "_clean"
         if bool_label:
