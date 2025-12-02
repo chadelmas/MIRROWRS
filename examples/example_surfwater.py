@@ -800,7 +800,7 @@ class WidthProcessor:
 
         return str_fpath_wm_tif, str_fpath_wm_out
 
-    def postprocessing(self, output_dir=tempfile.gettempdir(), more_outputs=False):
+    def postprocessing(self, output_dir=tempfile.gettempdir(), more_outputs=False, version='2-0-0'):
         """Save processed riverwidths into files
 
         :param output_dir: str
@@ -817,7 +817,7 @@ class WidthProcessor:
         ].copy(deep=True)
         df_nodes_width = df_nodes_width.dropna()
         df_nodes_width["datetime"] = self.scene_datetime
-        width_nodes_csv = self.scene_name + "_nodescale_BAS_widths.csv"
+        width_nodes_csv = self.scene_name + f"_nodescale_MIRROWRS_{version}_widths.csv"
         df_nodes_width.to_csv(os.path.join(output_dir, width_nodes_csv))
         _logger.info("Node-scale width saved to csv..")
 
@@ -826,7 +826,7 @@ class WidthProcessor:
             _logger.info(
                 "Save cross-sections (node-scale) with associated width as shp in epsg:4326"
             )
-            width_nodes_shp = self.scene_name + "_nodescale_BAS_widths.shp"
+            width_nodes_shp = self.scene_name + f"_nodescale_MIRROWRS_{version}_widths.shp"
             self.gdf_nodescale_widths.insert(
                 loc=len(self.gdf_nodescale_widths.columns) - 1,
                 column="datetime",
