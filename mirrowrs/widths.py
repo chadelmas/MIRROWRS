@@ -30,7 +30,11 @@ import pandas as pd
 import rasterio as rio
 from rasterio.features import shapes
 from rasterio.mask import mask
+import shapely
 from shapely.geometry import Polygon, MultiPolygon, shape
+from shapely.strtree import STRtree
+from shapely.prepared import prep
+import time
 
 _logger = logging.getLogger("widths_module")
 
@@ -202,53 +206,64 @@ def quantify_intersection_ratio_between_buffer(gdf_waterbuffer):
         containing the parameter beta ie ratio of buffer area that intersects other buffers
     """
 
+    start_time = time.perf_counter()
     # Set _logger
     _logger = logging.getLogger("widths_module.quantify_intersection_ratio_between_buffer")
 
-    # Initiate beta parameter
-    ser_beta = pd.Series(index=gdf_waterbuffer.index)
-    ser_beta[ser_beta.isna()] = 0.
+    ser_beta = pd.Series(0.0, index=gdf_waterbuffer.index)
 
-    # Check each section
-    for index in gdf_waterbuffer.index:
+    # Fix geometries
+    gdf = gdf_waterbuffer.copy()
+    gdf["geometry"] = gdf["geometry"].buffer(0)
 
-        # Check if section buffer is not empty
-        if not gdf_waterbuffer.at[index, "geometry"].is_empty:
+    geometries = list(gdf.geometry)
 
-            # Extract current buffer to check
-            geom = gdf_waterbuffer.at[index, "geometry"].buffer(0)
+    # Spatial index
+    tree = STRtree(geometries)
 
-            # Keep all other buffers apart
-            gser_wrk = gdf_waterbuffer["geometry"].buffer(0).copy(deep=True)
-            gser_wrk.drop(labels=index, inplace=True)
-            gser_wrk = gser_wrk[~gser_wrk.is_empty]
+    for i, geom in enumerate(geometries):
 
-            # Estimate intersection between current buffer and all others
-            ser_buffer_intersection = gser_wrk.intersection(geom)
+        idx = gdf.index[i]
 
-            # Compute area of each intersection
-            ser_buffer_intersection_areatot = ser_buffer_intersection.area
+        if geom.is_empty:
+            continue
 
-            # Sum up all intersection areas
-            gdf_waterbuffer.at[index, "intersect_area"] = (
-                ser_buffer_intersection_areatot.sum()
-            )
+        # Query spatial index
+        candidate_ids = tree.query(geom)
 
-            flt_beta = 0.
-            if gdf_waterbuffer.at[index, "water_area"] != 0.0:
-                flt_beta = (
-                    gdf_waterbuffer.at[index, "intersect_area"]
-                    / gdf_waterbuffer.at[index, "water_area"]
-                )
+        candidate_ids = [j for j in candidate_ids if j != i]
 
-            ser_beta.loc[index] = flt_beta
+        if not candidate_ids:
+            continue
 
-            # Clean variable
-            del gser_wrk
+        candidates = [geometries[j] for j in candidate_ids if not geometries[j].is_empty]
 
-    # gdf_waterbuffer["flg_bufful"] = updated_sections["flg_bufful"]
+        if not candidates:
+            continue
+
+        prepared_geom = prep(geom)
+        # Compute intersections with candidates
+        intersections = [geom.intersection(g) for g in candidates if prepared_geom.intersects(g)]
+        intersections = [i for i in intersections if not i.is_empty]
+
+        if not intersections:
+            continue
+
+        # Merge intersections
+        merged = shapely.union_all(intersections)
+        intersect_area = merged.area
+        gdf_waterbuffer.at[idx, "intersect_area"] = intersect_area
+
+        # Intersection ratio
+        water_area = gdf_waterbuffer.at[idx, "water_area"]
+
+        if water_area > 0:
+            ser_beta.loc[idx] = intersect_area / water_area
+
+    elapsed = time.perf_counter() - start_time
+    _logger.info(f"== quantify_intersection_ratio_between_buffer execution time: {elapsed:.3f} seconds")
+
     return ser_beta
-
 
 def compute_widths_from_single_watermask_base(
     watermask, sections, buffer_length=25.0, index_attr="index", **kwargs
@@ -354,7 +369,6 @@ def compute_widths_from_single_watermask_base(
             )
 
     return updated_sections, sections_buffered
-
 
 def compute_widths_from_single_watermask_scenario11(
     watermask, sections, buffer_length=25.0, index_attr="index", **kwargs
