@@ -613,6 +613,9 @@ class WaterMask:
             crs=self.crs,
             transform=self.transform,
             nodata=self.nodata,
+            compress="DEFLATE",
+            tiled=True,           
+            predictor=2
         ) as new_dataset:
             new_dataset.write(npar_band_tosave, 1)
 

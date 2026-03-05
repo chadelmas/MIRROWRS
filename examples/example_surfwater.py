@@ -728,6 +728,85 @@ class WidthProcessor:
             _logger.error("Processing based on check section KO ..")
         raise Exception
 
+
+    def set_valid_flag(self):
+        """
+        Add to node-scale a 'valid' column:
+            0 = normal
+            1 = node intersecting nodata of the watermask
+            2 = cross-sections intersection
+            3 = nodata + cross-sections intersection
+        """
+
+        _logger = logging.getLogger("WidthProcessing.set_valid_flag")
+
+        # Initialise flag column
+        self.gdf_nodescale_widths["valid"] = np.uint8(0)
+    
+        # NODATA FROM WATERMASK
+        with rio.open(self.f_watermask_in) as src:
+
+            band = src.read(1)
+            nodata_mask = (band == 255)
+
+            shapes_gen = features.shapes(
+                nodata_mask.astype(np.uint8),
+                mask=nodata_mask,
+                transform=src.transform
+            )
+
+            geoms = [shape(geom) for geom, value in shapes_gen if value == 1]
+
+            if len(geoms) == 0:
+                _logger.info("No nodata pixels found")
+            else:
+                gdf_nodata = gpd.GeoDataFrame(
+                    {"geometry": geoms},
+                    geometry="geometry",
+                    crs=src.crs
+                )
+                # Reprojection if needed
+                if self.gdf_nodescale_widths.crs != gdf_nodata.crs:
+                    gdf_nodata = gdf_nodata.to_crs(self.gdf_nodescale_widths.crs)
+
+                # Spatial join
+                intersection = gpd.sjoin(
+                    self.gdf_nodescale_widths,
+                    gdf_nodata,
+                    how="inner",
+                    predicate="intersects"
+                )
+
+                node_touching_nodata = set(intersection["node_id"])
+                _logger.info(f"Number of nodes touching nodata: {len(node_touching_nodata)}")
+
+                mask_nodata = self.gdf_nodescale_widths["node_id"].isin(node_touching_nodata)
+                self.gdf_nodescale_widths.loc[mask_nodata, "valid"] += np.uint8(1)
+
+        # SECTION INTERSECTIONS
+        gdf_sections = self.gdf_nodescale_widths[["node_id", "geometry"]]
+
+        # Spatial join
+        intersections = gpd.sjoin(
+            gdf_sections,
+            gdf_sections,
+            how="inner",
+            predicate="intersects"
+        )
+
+        # Remove self-intersections
+        intersections = intersections[
+           intersections["node_id_left"] != intersections["node_id_right"]
+        ]
+
+        sections_with_intersection = set(intersections["node_id_left"])
+        _logger.info(f"Number of nodes with intersections: {len(sections_with_intersection)}")
+
+        # SET FLAG TO NODES
+        mask_sections = self.gdf_nodescale_widths["node_id"].isin(sections_with_intersection)
+        self.gdf_nodescale_widths.loc[mask_sections, "valid"] += np.uint8(2)
+
+
     def processing(
         self,
         out_dir=tempfile.gettempdir(),
@@ -789,6 +868,7 @@ class WidthProcessor:
             ser_errtot, ser_sigo, ser_sigr, ser_sigs = compute_nodescale_widtherror(
                 self.gdf_nodescale_widths, self.bas_processor_o.watermask.res
             )
+
             self.gdf_nodescale_widths.insert(loc=3, column="width_u", value=ser_errtot)
             self.gdf_nodescale_widths.insert(loc=4, column="sigo", value=ser_sigo)
             self.gdf_nodescale_widths.insert(loc=5, column="sigr", value=ser_sigr)
@@ -800,26 +880,19 @@ class WidthProcessor:
             _logger.info("Node-scale width errors computed ko..")
             raise Exception
 
+        # Compute valid flag
+        _logger.info("Compute valid flag (nodata, intersections) at node scale")
+        try:
+            self.set_valid_flag()
+
+            _logger.info("Valid flag computed..")
+        except Exception as err:
+            _logger.error(err)
+            _logger.info("Valid flag computed ko..")
+            raise Exception
+
         return str_fpath_wm_tif, str_fpath_wm_out
 
-    def vectorize_nodata_255(self, raster_path, output_vector_path):
-        """Vectorise nodata pixels (255) from Surfwater raster"""
-
-        _logger.info(f"Raster vectorisation : {raster_path}")
-        with rio.open(raster_path) as src:
-            band = src.read(1)
-            nodata_mask = (band == 255).astype(np.uint8)
-            shapes_gen = features.shapes(
-                nodata_mask,
-                mask=nodata_mask,
-                transform=src.transform
-            )
-            geoms = [shape(geom) for geom, value in shapes_gen if value == 1]
-            if len(geoms) == 0:
-                return None
-            gdf = gpd.GeoDataFrame({"value": [255]*len(geoms)}, geometry=geoms, crs=src.crs)
-        gdf.to_file(output_vector_path, driver="GeoJSON")
-        return output_vector_path
 
     def postprocessing(self, output_dir=tempfile.gettempdir(), more_outputs=False, version='2-0-0'):
         """Save processed riverwidths into files
@@ -834,7 +907,7 @@ class WidthProcessor:
 
         _logger.info("Save node-scale width as csv ")
         df_nodes_width = self.gdf_nodescale_widths.loc[
-            :, ["reach_id", "node_id", "provider", "width", "width_u"]
+            :, ["reach_id", "node_id", "provider", "width", "width_u","valid"]
         ].copy(deep=True)
         df_nodes_width = df_nodes_width.dropna()
         df_nodes_width["datetime"] = self.scene_datetime
@@ -862,47 +935,6 @@ class WidthProcessor:
             )
             self.gdf_nodescale_widths.to_file(os.path.join(output_dir, width_nodes_shp))
             _logger.info("Node-scale width saved to shp..")
-
-            # Nodata managment
-            base_name = width_nodes_csv.replace(f"_nodescale_MIRROWRS_{version}_widths.csv", "")
-					
-            tile = self.nodes_shp.split("/")[-3]
-            raster_name = base_name + ".tif"
-            raster_path = os.path.join(os.path.dirname(self.f_watermask_in), raster_name)
-
-            if os.path.exists(raster_path):
-                vector_output = raster_path.replace(".tif", "_nodata255.geojson")
-                nodata_geojson = self.vectorize_nodata_255(raster_path, vector_output)
-                if nodata_geojson is not None:
-                    gdf_nodata = gpd.read_file(nodata_geojson)
-
-                    # Check crs
-                    if self.gdf_nodescale_widths.crs != gdf_nodata.crs:
-                        gdf_nodata = gdf_nodata.to_crs(self.gdf_nodescale_widths.crs)
-
-                    # Node intersection
-                    intersection = gpd.sjoin(
-                        self.gdf_nodescale_widths,
-                        gdf_nodata,
-                        how="inner",
-                        predicate="intersects"
-                    )
-
-                    node_touching_nodata = set(intersection["node_id"].astype(float))
-                    _logger.info(f"Number of node_id touching nodata : {len(node_touching_nodata)}")
-
-                    # Add valid column
-                    df_nodes_width["valid"] = True
-
-                    # Set to False if node_id intersects NoData
-                    df_nodes_width.loc[df_nodes_width["node_id"].astype(float).isin(node_touching_nodata), "valid"] = False
-
-                    df_nodes_width.to_csv(csv_path, index=False)
-                else:
-                    _logger.info("No nodata pixels found, all nodes remain valid.")
-            else:
-                _logger.warning(f"Surfwater raster not found for nodata check: {raster_path}")
-                exit()
 
 
 def parse_inputs():
