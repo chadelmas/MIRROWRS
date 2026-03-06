@@ -106,9 +106,12 @@ def get_linedge_pointwise_norm(npar_xycoord):
     if not isinstance(npar_xycoord, np.ndarray):
         raise TypeError("Expected a numpy.ndarray as input")
     if npar_xycoord.shape[1] < 2:
-        raise DimensionError("npar_xycoord.shape[1] < 2, need at leat 2")
-    if npar_xycoord.shape[1] > 2:
-        _logger.warning("npar_xycoord.shape[1] > 2 :: Wwll ignore additional columns.")
+        raise DimensionError("npar_xycoord.shape[1] < 2, need at least 2")
+
+    # --- fix: avoid crash if there is 0 or 1 vertex
+    if npar_xycoord.shape[0] < 2:
+        _logger.warning("Input line has < 2 vertices. Returning empty norm array.")
+        return np.array([])
 
     # Compute elementary shift along x-coordinate
     npar_dx = npar_xycoord[2:, 0] - npar_xycoord[0:-2, 0]
@@ -137,15 +140,21 @@ def check_centerline_geometry(lin_centerline_in):
 
     # Set _logger
     _logger = logging.getLogger("rivergeomproduct_module.check_centerline_geometry")
+
     if lin_centerline_in.geom_type == "MultiLineString":
         _logger.warning(f"Line type : type(lin_centerline_in)")
         lin_centerline_in = max(lin_centerline_in.geoms, key=lambda l: l.length)
+
     # Check inputs
     if not isinstance(lin_centerline_in, LineString):
         raise TypeError("Input lin_centerline_in must be a LineString object")
 
     # Get coordinates of each point within the line geometry
     npar_xycoord = np.array(lin_centerline_in.coords)
+
+    # If only one or two vertices in centerline_in : no need to check in search of overlapping vertices
+    if len(lin_centerline_in.coords) <= 2:
+        return lin_centerline_in
 
     # Get distance between consecutive edge
     npar_norm = get_linedge_pointwise_norm(npar_xycoord)

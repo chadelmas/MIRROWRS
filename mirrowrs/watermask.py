@@ -332,6 +332,11 @@ class WaterMask:
                 )
 
         # Get max label value
+        if not dct_label:
+            # No water object
+            _logger.info(
+            f"! No water object detected.")
+            return
         int_max_label = max(dct_label.keys())
         if int_max_label >= 65535:
             raise NotImplementedError("dtype uint16 is not enough")
@@ -608,6 +613,9 @@ class WaterMask:
             crs=self.crs,
             transform=self.transform,
             nodata=self.nodata,
+            compress="DEFLATE",
+            tiled=True,           
+            predictor=2
         ) as new_dataset:
             new_dataset.write(npar_band_tosave, 1)
 
