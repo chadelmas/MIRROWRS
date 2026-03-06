@@ -137,7 +137,9 @@ def check_centerline_geometry(lin_centerline_in):
 
     # Set _logger
     _logger = logging.getLogger("rivergeomproduct_module.check_centerline_geometry")
-
+    if lin_centerline_in.geom_type == "MultiLineString":
+        _logger.warning(f"Line type : type(lin_centerline_in)")
+        lin_centerline_in = max(lin_centerline_in.geoms, key=lambda l: l.length)
     # Check inputs
     if not isinstance(lin_centerline_in, LineString):
         raise TypeError("Input lin_centerline_in must be a LineString object")
