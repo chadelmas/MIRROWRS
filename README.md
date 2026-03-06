@@ -23,7 +23,6 @@ Pronounce it "mirrors" !
 
 MIRROWRS is a simple Python-based toolbox designed to compute river widths from a space-borne watermask given a set of section (line geometries) along the river.
 
-
 ## Download and install
 
 Main version available on github : https://github.com/csgroup-oss/MIRROWRS
@@ -47,7 +46,6 @@ If you have python-3.12 and `sw1Dto2D` is already installed, then running this c
 pip install GDAL==`gdal-config --version`
 
 pip install -e .
-
 ```
 
 ## Features
@@ -58,7 +56,6 @@ Using the MIRROWRS toolbox, you can perform two tasks :
 derive the river widths along the sections
 - If the sections lines are not available, using the centerline reaches (as a shapefile of LineString) and a set of segmentation points (as a shapefile of Point),
 you can draw the sections yourself
-
 
 ## Quick start
 
