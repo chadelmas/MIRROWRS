@@ -894,12 +894,14 @@ class WidthProcessor:
         return str_fpath_wm_tif, str_fpath_wm_out
 
 
-    def postprocessing(self, output_dir=tempfile.gettempdir(), more_outputs=False, version='2-0-0'):
+    def postprocessing(self, output_dir=tempfile.gettempdir(), more_outputs=False, debug_mode=False, version='2-0-0'):
         """Save processed riverwidths into files
 
         :param output_dir: str
             Full path to directory where store outputs
         :param more_outputs: boolean
+            If True, also store geojson output
+        :param debug_mode: boolean
             If True, store all detailed outputs
         """
 
@@ -917,11 +919,11 @@ class WidthProcessor:
         _logger.info("Node-scale width saved to csv..")
 
         # Save cross-sections with associated width as shp in epsg:4326
-        if more_outputs:
+        if more_outputs or debug_mode:
             _logger.info(
                 "Save cross-sections (node-scale) with associated width as shp in epsg:4326"
             )
-            width_nodes_shp = self.scene_name + f"_nodescale_MIRROWRS_{version}_widths.shp"
+            width_nodes_shp = self.scene_name + f"_nodescale_MIRROWRS_{version}_widths.geojson"
             self.gdf_nodescale_widths.insert(
                 loc=len(self.gdf_nodescale_widths.columns) - 1,
                 column="datetime",
@@ -934,7 +936,7 @@ class WidthProcessor:
                 self.gdf_nodescale_widths["node_id"].astype(int).astype(str)
             )
             self.gdf_nodescale_widths.to_file(os.path.join(output_dir, width_nodes_shp))
-            _logger.info("Node-scale width saved to shp..")
+            _logger.info("Node-scale width saved to geojson..")
 
 
 def parse_inputs():
@@ -1019,7 +1021,13 @@ def parse_inputs():
         "-mo",
         "--more_outputs",
         action="store_true",
-        help="If activated, shapefile and cleaned watermasks will be saved too",
+        help="If activated, geojson will be saved too",
+    )
+    parser.add_argument(
+        "-dm",
+        "--debug_mode",
+        action="store_true",
+        help="If activated, geojson and cleaned watermasks will be saved too",
     )
 
     # Set input arguments
@@ -1101,6 +1109,7 @@ def process_single_scene(
     str_type_clean=None,
     str_type_label=None,
     more_outputs=False,
+    debug_mode=False,
 ):
     """Process a reference watermask and compute river widths
 
@@ -1121,6 +1130,8 @@ def process_single_scene(
     :param str_type_label: str
         "base" : watermask segmentation/labelling method
     :param more_outputs: bool
+        If True, store geojson outputs
+    :param debug_mode: bool
         If True, store all detailed outputs
     """
 
@@ -1159,8 +1170,8 @@ def process_single_scene(
         )
 
         # # PostProcessing
-        obj_widthprocessor.postprocessing(str_outputdir, more_outputs)
-        if not more_outputs:
+        obj_widthprocessor.postprocessing(str_outputdir, more_outputs, debug_mode)
+        if not debug_mode:
             if os.path.exists(str_fpath_wm_tif):
                 os.remove(str_fpath_wm_tif)
 
@@ -1196,6 +1207,7 @@ def main():
         str_type_label=args.type_label,
         flt_factor_width=args.factor_width,
         more_outputs=args.more_outputs,
+        debug_mode=args.debug_mode,
     )
 
 
