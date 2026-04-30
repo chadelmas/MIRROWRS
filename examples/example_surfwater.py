@@ -367,14 +367,26 @@ class WidthProcessor:
             raise FileExistsError("Input watermask GeoTiff does not exist")
         if str_datetime is None:
             raise ValueError("Missing scene datetime information input")
-        try:
+        '''try:
             _ = datetime.strptime(str_datetime, "%Y%m%dT%H%M%S")
         except ValueError:
             raise ValueError(
                 "input datetime {} does not match format '%Y%m%dT%H%M%S'.".format(
                     str_datetime
                 )
-            )
+            )'''
+        try:
+            dt = datetime.strptime(str_datetime, "%Y%m%dT%H%M%S")
+        except ValueError:
+            # fallback : essayer avec la date seule
+            try:
+                dt = datetime.strptime(str_datetime[:8], "%Y%m%d")
+                print(f"Heure invalide dans '{str_datetime}', date seule utilisée: {dt}")
+            except ValueError:
+                raise ValueError(
+                    f"input datetime {str_datetime} does not match expected formats "
+                    "('%Y%m%dT%H%M%S' or '%Y%m%d').")
+        
         if str_reaches_shp is None:
             raise ValueError("Missing reaches shapefile input")
         if not os.path.join(str_reaches_shp):
