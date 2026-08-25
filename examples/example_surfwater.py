@@ -30,6 +30,7 @@ import logging
 import os
 import sys
 import tempfile
+from contextlib import contextmanager
 from argparse import ArgumentParser
 from datetime import datetime
 
@@ -46,6 +47,68 @@ from mirrowrs.tools import FileExtensionError
 from mirrowrs.watermask import WaterMask
 
 _logger = logging.getLogger("mirrowrs_on_surfwater")
+
+
+def _is_vsis3_path(path):
+    """Return True when the input path targets GDAL S3 virtual filesystem."""
+
+    return isinstance(path, str) and path.startswith("/vsis3/")
+
+
+def _build_gdal_s3_env():
+    """Build a GDAL/rasterio S3 environment from process environment variables."""
+
+    env_map = {
+        "AWS_ACCESS_KEY_ID": "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY": "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN": "AWS_SESSION_TOKEN",
+        "AWS_DEFAULT_REGION": "AWS_DEFAULT_REGION",
+        "AWS_REGION": "AWS_REGION",
+        "AWS_S3_ENDPOINT": "AWS_S3_ENDPOINT",
+        "SSL_CERT_FILE": "SSL_CERT_FILE",
+        "CURL_CA_BUNDLE": "CURL_CA_BUNDLE",
+    }
+    return {
+        gdal_key: os.environ[env_key]
+        for gdal_key, env_key in env_map.items()
+        if os.environ.get(env_key)
+    }
+
+
+def _warn_if_incomplete_s3_auth(path):
+    """Emit actionable warnings when /vsis3 is used without common auth/SSL settings."""
+
+    if not _is_vsis3_path(path):
+        return
+
+    key = os.environ.get("AWS_ACCESS_KEY_ID")
+    secret = os.environ.get("AWS_SECRET_ACCESS_KEY")
+    if not key or not secret:
+        _logger.warning(
+            "S3 path detected but AWS credentials seem incomplete. "
+            "Expected AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in environment."
+        )
+
+    ssl_cert = os.environ.get("SSL_CERT_FILE") or os.environ.get("CURL_CA_BUNDLE")
+    if not ssl_cert:
+        _logger.warning(
+            "S3 path detected but no SSL cert bundle configured. "
+            "If you encounter TLS/SSL errors in Docker, set SSL_CERT_FILE or CURL_CA_BUNDLE."
+        )
+
+
+@contextmanager
+def _open_raster(path, mode="r"):
+    """Open local or /vsis3 raster with optional explicit GDAL S3 environment."""
+
+    if _is_vsis3_path(path):
+        _warn_if_incomplete_s3_auth(path)
+        with rio.Env(**_build_gdal_s3_env()):
+            with rio.open(path, mode) as src:
+                yield src
+    else:
+        with rio.open(path, mode) as src:
+            yield src
 
 # Config BAS
 DCT_CONFIG_O = {
@@ -230,7 +293,7 @@ class WaterMaskCHM(WaterMask):
         # Set raster coordinate system
         klass.coordsyst = "proj"
 
-        with rio.open(surfwater_tif, "r") as src:
+        with _open_raster(surfwater_tif, "r") as src:
 
             klass.crs = src.crs
             klass.crs_epsg = src.crs.to_epsg()
@@ -377,11 +440,11 @@ class WidthProcessor:
             )
         if str_reaches_shp is None:
             raise ValueError("Missing reaches shapefile input")
-        if not os.path.join(str_reaches_shp):
+        if not os.path.isfile(str_reaches_shp):
             raise FileExistsError("Input reaches shapefile does not exist")
         if str_nodes_shp is None:
             raise ValueError("Missing nodes shapefile input")
-        if not os.path.join(str_nodes_shp):
+        if not os.path.isfile(str_nodes_shp):
             raise FileExistsError("Input nodes shapefile does not exist")
         _logger.info("Input checked")
 
@@ -418,7 +481,7 @@ class WidthProcessor:
         _logger = logging.getLogger("WidthProcessing.preprocessing")
 
         # Get coordinate system from watermask
-        with rio.open(self.f_watermask_in) as src:
+        with _open_raster(self.f_watermask_in, "r") as src:
             crs_wm_in = src.crs
 
         # Instanciate RiverGeom object
@@ -744,7 +807,7 @@ class WidthProcessor:
         self.gdf_nodescale_widths["valid"] = np.uint8(0)
     
         # NODATA FROM WATERMASK
-        with rio.open(self.f_watermask_in) as src:
+        with _open_raster(self.f_watermask_in, "r") as src:
 
             band = src.read(1)
             nodata_mask = (band == 255)
