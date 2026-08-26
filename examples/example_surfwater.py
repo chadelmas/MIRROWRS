@@ -67,6 +67,7 @@ def _build_gdal_s3_env():
         "AWS_S3_ENDPOINT": "AWS_S3_ENDPOINT",
         "SSL_CERT_FILE": "SSL_CERT_FILE",
         "CURL_CA_BUNDLE": "CURL_CA_BUNDLE",
+        "AWS_CA_BUNDLE": "AWS_CA_BUNDLE"
     }
     return {
         gdal_key: os.environ[env_key]
