@@ -56,14 +56,14 @@ def _is_vsis3_path(path):
 
 
 def _build_gdal_s3_env():
-    """Build a GDAL/rasterio S3 environment from process environment variables."""
+    """Return only GDAL/rasterio env values that are supported for /vsis3 access.
+
+    In GDAL, AWS credentials and related AWS_* settings are resolved from the
+    process environment and must not be pushed into rasterio.Env() directly.
+    Passing them there triggers the warning seen in production logs.
+    """
 
     env_map = {
-        "AWS_ACCESS_KEY_ID": "AWS_ACCESS_KEY_ID",
-        "AWS_SECRET_ACCESS_KEY": "AWS_SECRET_ACCESS_KEY",
-        "AWS_SESSION_TOKEN": "AWS_SESSION_TOKEN",
-        "AWS_DEFAULT_REGION": "AWS_DEFAULT_REGION",
-        "AWS_REGION": "AWS_REGION",
         "AWS_S3_ENDPOINT": "AWS_S3_ENDPOINT",
         "SSL_CERT_FILE": "SSL_CERT_FILE",
         "CURL_CA_BUNDLE": "CURL_CA_BUNDLE",
