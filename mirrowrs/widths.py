@@ -511,7 +511,7 @@ def compute_widths_from_single_watermask_scenario11(
             _logger.info(
                 "Dry section: %i (ID=%s)" % (section_index, dry_section[index_attr])
             )
-
+    
     return updated_sections, sections_buffered
 
 def compute_widths_from_single_watermask(

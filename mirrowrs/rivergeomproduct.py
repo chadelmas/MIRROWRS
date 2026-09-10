@@ -24,6 +24,7 @@ module rivergeomproduct.py
 
 import logging
 import os
+import pyogrio
 
 import geopandas as gpd
 import numpy as np
@@ -558,18 +559,21 @@ class RiverGeomProduct:
         _logger = logging.getLogger("rivergeomproduct_module.RiverGeomProduct.from_shp")
 
         # Check reaches_shp input
-        if not os.path.isfile(reaches_shp):
-            raise FileExistsError("Input reaches_shp file does not exist..")
-        else:
-            if not reaches_shp.endswith(".shp"):
-                raise FileExtensionError(message="Input file is not a .shp")
-
-        # Check reaches_shp input
-        if not os.path.isfile(nodes_shp):
-            raise FileExistsError("Input nodes_shp file does not exist..")
-        else:
-            if not nodes_shp.endswith(".shp"):
-                raise FileExtensionError(message="Input file is not a .shp")
+        try:
+            info = pyogrio.read_info(reaches_shp)
+        except Exception as e:
+            raise FileExistsError(f"Input {reaches_shp} file could not be read: {e}")
+        
+        if info["features"] == 0:
+            raise FileExistsError(f"Input {reaches_shp} file contains no features.")
+            
+        try:
+            info = pyogrio.read_info(nodes_shp)
+        except Exception as e:
+            raise FileExistsError(f"Input {nodes_shp} file could not be read: {e}")
+        
+        if info["features"] == 0:
+            raise FileExistsError(f"Input {nodes_shp} file contains no features.")
 
         # Load 1D geometries
         gdf_reaches = gpd.read_file(reaches_shp)

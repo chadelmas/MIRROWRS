@@ -605,8 +605,8 @@ def test_compute_widths_from_single_watermask_check_inputs(scenario_tst, expecte
 
 # Test function compute_widths_from_single_watermask : run right function
 @pytest.mark.parametrize("scenario_tst, func_to_test",
-                         [(0, "widths.compute_widths_from_single_watermask_base"),
-                          (11, "widths.compute_widths_from_single_watermask_scenario11")])
+                         [(0, "mirrowrs.widths.compute_widths_from_single_watermask_base"),
+                          (11, "mirrowrs.widths.compute_widths_from_single_watermask_scenario11")])
 def test_compute_widths_from_single_watermask_right_call(mocker, gdf_sections_large_gold, fpath_wm_base_large, buffer_length, scenario_tst, func_to_test):
     """Test function compute_widths_from_single_watermask : run right function
     """
@@ -615,17 +615,28 @@ def test_compute_widths_from_single_watermask_right_call(mocker, gdf_sections_la
     sections_tst = gdf_sections_large_gold
     watermask_tst = rio.open(fpath_wm_base_large, "r")
 
-    if scenario_tst == 0:
-        mocker_widths = mocker.patch(func_to_test)
-    else: # scenario=11
-        mocker_widths = mocker.patch(func_to_test)
+    # if scenario_tst == 0:
+    #     mocker_widths = mocker.patch(
+    #         func_to_test,
+    #         autospec=True,
+    #         return_value=(gdf_sections_large_gold, None)
+    #     )
+    #     # mocker_widths = mocker.patch(func_to_test)
+    # else: # scenario=11
+    #     # mocker_widths = mocker.patch(func_to_test)
+    #     mocker_widths = mocker.patch(
+    #         func_to_test,
+    #         autospec=True,
+    #         return_value=(gdf_sections_large_gold, None)
+    #     )
+
 
     # Mock test
     gdf_widths, _ = compute_widths_from_single_watermask(scenario=scenario_tst,
                                                          watermask=watermask_tst,
                                                          sections=sections_tst,
                                                          buffer_length=buffer_length)
-
+    
     assert gdf_widths.at[0, "width"] == 400.
     # mocker_widths.assert_called_once()
 
