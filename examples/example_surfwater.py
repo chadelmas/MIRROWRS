@@ -55,6 +55,14 @@ def _is_vsis3_path(path):
     return isinstance(path, str) and path.startswith("/vsis3/")
 
 
+def _s3_to_vsis3(path):
+    """Convert an 's3://bucket/key' URI to GDAL's '/vsis3/bucket/key' path."""
+
+    if isinstance(path, str) and path.startswith("s3://"):
+        return "/vsis3/" + path[len("s3://"):]
+    return path
+
+
 def _build_gdal_s3_env():
     """Return only GDAL/rasterio env values that are supported for /vsis3 access.
 
@@ -114,10 +122,6 @@ def _open_raster(path, mode="r"):
 
 def _ogr_open_checked(path):
     """Open a vector file with ogr, raising if it is missing/unreadable or empty.
-
-    ogr.Open returns None (without raising) when the file cannot be opened, so
-    the None case must be checked explicitly instead of relying on a try/except
-    around ogr.Open alone. /vsis3 paths also need the same GDAL S3 env as rasters.
     """
 
     if _is_vsis3_path(path):
@@ -445,6 +449,11 @@ class WidthProcessor:
         """
 
         _logger.info("Instanciate WidthProcessor")
+
+        # Normalize s3:// URIs to GDAL's /vsis3/ virtual filesystem paths
+        str_watermask_tif = _s3_to_vsis3(str_watermask_tif)
+        str_reaches_shp = _s3_to_vsis3(str_reaches_shp)
+        str_nodes_shp = _s3_to_vsis3(str_nodes_shp)
 
         # Check inputs
         if str_watermask_tif is None:
@@ -1211,6 +1220,11 @@ def process_single_scene(
     """
 
     _logger.info("=== Processing watermask: " + str_watermask_tif + " === : start\n")
+
+    # Normalize s3:// URIs to GDAL's /vsis3/ virtual filesystem paths
+    str_watermask_tif = _s3_to_vsis3(str_watermask_tif)
+    str_reaches_shp = _s3_to_vsis3(str_reaches_shp)
+    str_nodes_shp = _s3_to_vsis3(str_nodes_shp)
 
     # Watermask filename to process
     if not str_watermask_tif.startswith("/vsis3") and not os.path.isfile(
