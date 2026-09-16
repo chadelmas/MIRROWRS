@@ -111,6 +111,30 @@ def _open_raster(path, mode="r"):
         with rio.open(path, mode) as src:
             yield src
 
+
+def _ogr_open_checked(path):
+    """Open a vector file with ogr, raising if it is missing/unreadable or empty.
+
+    ogr.Open returns None (without raising) when the file cannot be opened, so
+    the None case must be checked explicitly instead of relying on a try/except
+    around ogr.Open alone. /vsis3 paths also need the same GDAL S3 env as rasters.
+    """
+
+    if _is_vsis3_path(path):
+        _warn_if_incomplete_s3_auth(path)
+        with rio.Env(**_build_gdal_s3_env()):
+            info = ogr.Open(path)
+    else:
+        info = ogr.Open(path)
+
+    if info is None:
+        raise FileExistsError(f"Input {path} file could not be read.")
+
+    if info.GetLayer(0).GetFeatureCount() == 0:
+        raise FileExistsError(f"Input {path} file contains no features.")
+
+    return info
+
 # Config BAS
 DCT_CONFIG_O = {
     "clean": {
@@ -441,22 +465,10 @@ class WidthProcessor:
             )
         if str_reaches_shp is None:
             raise ValueError("Missing reaches shapefile input")
-        try:
-            info = ogr.Open(str_reaches_shp)
-        except Exception as e:
-            raise FileExistsError(f"Input {str_reaches_shp} file could not be read: {e}")
+        _ogr_open_checked(str_reaches_shp)
 
-        if info.GetLayer(0).GetFeatureCount() == 0:
-            raise FileExistsError(f"Input {str_reaches_shp} file contains no features.")
+        _ogr_open_checked(str_nodes_shp)
 
-        try:
-            info = ogr.Open(str_nodes_shp)
-        except Exception as e:
-            raise FileExistsError(f"Input {str_nodes_shp} file could not be read: {e}")
-
-        if info.GetLayer(0).GetFeatureCount() == 0:
-            raise FileExistsError(f"Input {str_nodes_shp} file contains no features.")
-        
         _logger.info("Input checked")
 
         # Set attributes from inputs

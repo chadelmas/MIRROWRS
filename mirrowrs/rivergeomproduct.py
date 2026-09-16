@@ -557,23 +557,6 @@ class RiverGeomProduct:
         # Set _logger
         _logger = logging.getLogger("rivergeomproduct_module.RiverGeomProduct.from_shp")
 
-        # Check reaches_shp input
-        try:
-            info = ogr.Open(reaches_shp)
-        except Exception as e:
-            raise FileExistsError(f"Input {reaches_shp} file could not be read: {e}")
-        
-        if info.GetLayer(0).GetFeatureCount() == 0:
-            raise FileExistsError(f"Input {reaches_shp} file contains no features.")
-            
-        try:
-            info = ogr.Open(nodes_shp)
-        except Exception as e:
-            raise FileExistsError(f"Input {nodes_shp} file could not be read: {e}")
-        
-        if info.GetLayer(0).GetFeatureCount() == 0:
-            raise FileExistsError(f"Input {nodes_shp} file contains no features.")
-
         # Load 1D geometries
         gdf_reaches = gpd.read_file(reaches_shp)
         gdf_nodes = gpd.read_file(nodes_shp)

@@ -26,7 +26,28 @@ import time
 
 _logger = logging.getLogger("tools_module")
 
+def _ogr_open_checked(path):
+    """Open a vector file with ogr, raising if it is missing/unreadable or empty.
 
+    ogr.Open returns None (without raising) when the file cannot be opened, so
+    the None case must be checked explicitly instead of relying on a try/except
+    around ogr.Open alone. /vsis3 paths also need the same GDAL S3 env as rasters.
+    """
+
+    if _is_vsis3_path(path):
+        _warn_if_incomplete_s3_auth(path)
+        with rio.Env(**_build_gdal_s3_env()):
+            info = ogr.Open(path)
+    else:
+        info = ogr.Open(path)
+
+    if info is None:
+        raise FileExistsError(f"Input {path} file could not be read.")
+
+    if info.GetLayer(0).GetFeatureCount() == 0:
+        raise FileExistsError(f"Input {path} file contains no features.")
+
+    return info
 class FileExtensionError(TypeError):
     """Specific exception indicating a wrong file extension
     """
