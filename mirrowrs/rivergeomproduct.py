@@ -24,8 +24,7 @@ module rivergeomproduct.py
 
 import logging
 import os
-import pyogrio
-
+from osgeo import ogr
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -560,19 +559,19 @@ class RiverGeomProduct:
 
         # Check reaches_shp input
         try:
-            info = pyogrio.read_info(reaches_shp)
+            info = ogr.Open(reaches_shp)
         except Exception as e:
             raise FileExistsError(f"Input {reaches_shp} file could not be read: {e}")
         
-        if info["features"] == 0:
+        if info.GetLayer(0).GetFeatureCount() == 0:
             raise FileExistsError(f"Input {reaches_shp} file contains no features.")
             
         try:
-            info = pyogrio.read_info(nodes_shp)
+            info = ogr.Open(nodes_shp)
         except Exception as e:
             raise FileExistsError(f"Input {nodes_shp} file could not be read: {e}")
         
-        if info["features"] == 0:
+        if info.GetLayer(0).GetFeatureCount() == 0:
             raise FileExistsError(f"Input {nodes_shp} file contains no features.")
 
         # Load 1D geometries

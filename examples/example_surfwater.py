@@ -33,7 +33,7 @@ import tempfile
 from contextlib import contextmanager
 from argparse import ArgumentParser
 from datetime import datetime
-import pyogrio
+from osgeo import ogr
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -442,19 +442,19 @@ class WidthProcessor:
         if str_reaches_shp is None:
             raise ValueError("Missing reaches shapefile input")
         try:
-            info = pyogrio.read_info(str_reaches_shp)
+            info = ogr.Open(str_reaches_shp)
         except Exception as e:
             raise FileExistsError(f"Input {str_reaches_shp} file could not be read: {e}")
 
-        if info["features"] == 0:
+        if info.GetLayer(0).GetFeatureCount() == 0:
             raise FileExistsError(f"Input {str_reaches_shp} file contains no features.")
 
         try:
-            info = pyogrio.read_info(str_nodes_shp)
+            info = ogr.Open(str_nodes_shp)
         except Exception as e:
             raise FileExistsError(f"Input {str_nodes_shp} file could not be read: {e}")
 
-        if info["features"] == 0:
+        if info.GetLayer(0).GetFeatureCount() == 0:
             raise FileExistsError(f"Input {str_nodes_shp} file contains no features.")
         
         _logger.info("Input checked")
