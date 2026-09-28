@@ -33,7 +33,7 @@ import tempfile
 from contextlib import contextmanager
 from argparse import ArgumentParser
 from datetime import datetime
-from osgeo import ogr
+from osgeo import gdal, ogr
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -124,17 +124,26 @@ def _ogr_open_checked(path):
     """Open a vector file with ogr, raising if it is missing/unreadable or empty.
     """
 
+    gdal.ErrorReset()
     if _is_vsis3_path(path):
         _warn_if_incomplete_s3_auth(path)
+        _logger = logging.getLogger("BAS PROCESSING")
+        _logger.info(f"Try to open {path}")
         with rio.Env(**_build_gdal_s3_env()):
             info = ogr.Open(path)
     else:
         info = ogr.Open(path)
 
     if info is None:
-        raise FileExistsError(f"Input {path} file could not be read.")
+        error = gdal.GetLastErrorMsg()
+        detail = f" GDAL: {error}" if error else ""
+        raise FileExistsError(f"Input {path} file could not be read.{detail}")
 
-    if info.GetLayer(0).GetFeatureCount() == 0:
+    layer = info.GetLayer(0)
+    if layer is None:
+        raise FileExistsError(f"Input {path} contains no readable vector layer.")
+
+    if layer.GetFeatureCount() == 0:
         raise FileExistsError(f"Input {path} file contains no features.")
 
     return info
