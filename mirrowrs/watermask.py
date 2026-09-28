@@ -36,6 +36,8 @@ import rasterio as rio
 from rasterio.features import shapes
 from shapely.geometry import Point, Polygon, shape
 
+from mirrowrs.s3_tools import is_s3_path, normalize_s3_path, open_raster
+
 from mirrowrs.gis import reproject_bbox_to_wgs84
 from mirrowrs.tools import DimensionError, FileExtensionError
 
@@ -127,7 +129,8 @@ class WaterMask:
         klass.str_provider = str_origin
 
         # Set watermask rasterfile
-        if not watermask_tif.startswith("/vsis3") and not os.path.isfile(watermask_tif):
+        watermask_tif = normalize_s3_path(watermask_tif)
+        if not is_s3_path(watermask_tif) and not os.path.isfile(watermask_tif):
             raise FileExistsError("Input watermak_tif file does not exist..")
         if not watermask_tif.endswith(".tif"):
             raise FileExtensionError(message="Input file is not a .tif")
@@ -141,7 +144,7 @@ class WaterMask:
         klass.coordsyst = str_proj
 
         # Set raster bounding box, crs and resolution
-        with rio.open(watermask_tif, "r") as src:
+        with open_raster(watermask_tif, "r") as src:
             klass.crs = src.crs
             klass.crs_epsg = src.crs.to_epsg()
             klass.bbox = (
@@ -602,7 +605,7 @@ class WaterMask:
         )
 
         # Save band in a GeoTiff
-        with rio.open(
+        with open_raster(
             str_fpath_wm_out_tif,
             mode="w",
             driver="GTiff",

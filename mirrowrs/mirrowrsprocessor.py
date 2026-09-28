@@ -31,7 +31,6 @@ import tempfile
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import rasterio as rio
 import shapely
 from pyproj import CRS
 from shapely.geometry import MultiPolygon
@@ -43,6 +42,7 @@ from mirrowrs.constants import (
 )
 from mirrowrs.constants import L_WM_CLEAN_ALGO, L_WM_LABEL_ALGO
 from mirrowrs.sections_reduction import reduce_section
+from mirrowrs.s3_tools import is_s3_path, normalize_s3_path, open_raster
 from mirrowrs.tools import DisjointBboxError
 from mirrowrs.watermask import WaterMask
 from mirrowrs.widths import compute_widths_from_single_watermask
@@ -89,9 +89,8 @@ class MIRROWRSPorcessor:
         # Check inputs
         if str_watermask_tif is None:
             raise ValueError("Missing watermask GeoTiff input file")
-        if not str_watermask_tif.startswith("/vsis3") and not os.path.isfile(
-            str_watermask_tif
-        ):
+        str_watermask_tif = normalize_s3_path(str_watermask_tif)
+        if not is_s3_path(str_watermask_tif) and not os.path.isfile(str_watermask_tif):
             raise FileExistsError("Input watermask GeoTiff does not exist")
 
         if gdf_sections is None:
@@ -698,7 +697,7 @@ class MIRROWRSPorcessor:
         else:
             str_fpath_wm_tif = str_fpath_wm_in
 
-        with rio.open(str_fpath_wm_tif) as src:
+        with open_raster(str_fpath_wm_tif) as src:
             gdf_widths, _ = compute_widths_from_single_watermask(
                 scenario=dct_cfg["widths"]["scenario"],
                 watermask=src,

@@ -35,6 +35,7 @@ from sw1dto2d.sw1dto2d import SW1Dto2D
 from mirrowrs.gis import project
 from mirrowrs.tools import FileExtensionError, DimensionError
 from mirrowrs.constants import L_SECTIONS_TYPE
+from mirrowrs.s3_tools import read_vector
 
 _logger = logging.getLogger("rivergeomproduct_module")
 
@@ -558,8 +559,8 @@ class RiverGeomProduct:
         _logger = logging.getLogger("rivergeomproduct_module.RiverGeomProduct.from_shp")
 
         # Load 1D geometries
-        gdf_reaches = gpd.read_file(reaches_shp)
-        gdf_nodes = gpd.read_file(nodes_shp)
+        gdf_reaches = read_vector(reaches_shp)
+        gdf_nodes = read_vector(nodes_shp)
 
         klass = RiverGeomProduct.from_gdf(
             gdf_reaches=gdf_reaches,

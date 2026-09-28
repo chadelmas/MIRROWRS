@@ -24,11 +24,9 @@ Functionnality tests
 import os
 import tempfile
 
-import geopandas as gpd
-import rasterio as rio
-
 from mirrowrs.mirrowrsprocessor import MIRROWRSPorcessor
 from mirrowrs.rivergeomproduct import RiverGeomProduct
+from mirrowrs.s3_tools import open_raster, read_vector
 
 # Input file
 ex_dir = os.path.join(os.path.dirname(__file__), "inputs")
@@ -47,11 +45,11 @@ shp_reaches_cplx = os.path.join(ex_dir, "example_reaches_cplx.shp")
 shp_nodes_cplx = os.path.join(ex_dir, "example_nodes_cplx_up.shp")
 
 # Load reference waterbodies - cfg 4-5
-gdf_waterbodies = gpd.read_file(ref_watermask_tif)
+gdf_waterbodies = read_vector(ref_watermask_tif)
 
 # Load sections and reaches - cfg 1-4
-gdf_reaches = gpd.read_file(shp_reaches_smpl)
-gdf_sections = gpd.read_file(shp_sections_smpl)
+gdf_reaches = read_vector(shp_reaches_smpl)
+gdf_sections = read_vector(shp_sections_smpl)
 gdf_sections.rename(mapper={"segment": "id"}, inplace=True, axis=1)
 
 
@@ -247,7 +245,7 @@ def example_5():
     }
 
     # Get watermask crs
-    with rio.open(watermask_tif) as src:
+    with open_raster(watermask_tif) as src:
         crs_wm_in = src.crs
 
     # Compute sections
@@ -281,8 +279,8 @@ def example_6():
     print("")
 
     # Load reaches
-    gdf_reaches_cplx = gpd.read_file(shp_reaches_cplx)
-    gdf_nodes_cplx = gpd.read_file(shp_nodes_cplx)
+    gdf_reaches_cplx = read_vector(shp_reaches_cplx)
+    gdf_nodes_cplx = read_vector(shp_nodes_cplx)
 
     # Compute sections
     dct_geom_attr = {
@@ -388,8 +386,8 @@ def example_7():
     print("")
 
     # Load reaches
-    gdf_reaches_cplx = gpd.read_file(shp_reaches_cplx)
-    gdf_nodes_cplx = gpd.read_file(shp_nodes_cplx)
+    gdf_reaches_cplx = read_vector(shp_reaches_cplx)
+    gdf_nodes_cplx = read_vector(shp_nodes_cplx)
 
     # Compute sections
     dct_geom_attr = {
@@ -494,8 +492,8 @@ def example_8():
     print("")
 
     # Load reaches
-    gdf_reaches_cplx = gpd.read_file(shp_reaches_cplx)
-    gdf_nodes_cplx = gpd.read_file(shp_nodes_cplx)
+    gdf_reaches_cplx = read_vector(shp_reaches_cplx)
+    gdf_nodes_cplx = read_vector(shp_nodes_cplx)
 
     # Compute sections
     dct_geom_attr = {
@@ -599,7 +597,7 @@ def example_9():
     print("")
 
     # Load reaches
-    gdf_reaches_cplx = gpd.read_file(shp_reaches_cplx)
+    gdf_reaches_cplx = read_vector(shp_reaches_cplx)
 
     # Compute sections
     dct_geom_attr = {
@@ -712,8 +710,8 @@ def example_10():
     print("")
 
     # Load reaches
-    gdf_reaches_cplx = gpd.read_file(shp_reaches_cplx)
-    gdf_nodes_cplx = gpd.read_file(shp_nodes_cplx)
+    gdf_reaches_cplx = read_vector(shp_reaches_cplx)
+    gdf_nodes_cplx = read_vector(shp_nodes_cplx)
 
     # Compute sections
     dct_geom_attr = {

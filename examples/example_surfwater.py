@@ -30,128 +30,22 @@ import logging
 import os
 import sys
 import tempfile
-from contextlib import contextmanager
 from argparse import ArgumentParser
 from datetime import datetime
-from osgeo import gdal, ogr
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import rasterio as rio
 from rasterio import features
 from shapely.geometry import shape
 
 from mirrowrs.mirrowrsprocessor import MIRROWRSPorcessor
 from mirrowrs.rivergeomproduct import RiverGeomProduct
+from mirrowrs.s3_tools import is_s3_path, normalize_s3_path, open_raster, read_vector
 from mirrowrs.tools import FileExtensionError
 from mirrowrs.watermask import WaterMask
 
 _logger = logging.getLogger("mirrowrs_on_surfwater")
 
-
-def _is_vsis3_path(path):
-    """Return True when the input path targets GDAL S3 virtual filesystem."""
-
-    return isinstance(path, str) and path.startswith("/vsis3/")
-
-
-def _s3_to_vsis3(path):
-    """Convert an 's3://bucket/key' URI to GDAL's '/vsis3/bucket/key' path."""
-
-    if isinstance(path, str) and path.startswith("s3://"):
-        return "/vsis3/" + path[len("s3://"):]
-    return path
-
-
-def _build_gdal_s3_env():
-    """Return only GDAL/rasterio env values that are supported for /vsis3 access.
-
-    In GDAL, AWS credentials and related AWS_* settings are resolved from the
-    process environment and must not be pushed into rasterio.Env() directly.
-    Passing them there triggers the warning seen in production logs.
-    """
-
-    env_map = {
-        "AWS_S3_ENDPOINT": "AWS_S3_ENDPOINT",
-        "SSL_CERT_FILE": "SSL_CERT_FILE",
-        "CURL_CA_BUNDLE": "CURL_CA_BUNDLE",
-        "AWS_CA_BUNDLE": "AWS_CA_BUNDLE"
-    }
-    gdal_env = {
-        gdal_key: os.environ[env_key]
-        for gdal_key, env_key in env_map.items()
-        if os.environ.get(env_key)
-    }
-    if "AWS_S3_ENDPOINT" in gdal_env:
-        gdal_env.setdefault(
-            "AWS_VIRTUAL_HOSTING", os.environ.get("AWS_VIRTUAL_HOSTING", "FALSE")
-        )
-    return gdal_env
-
-
-def _warn_if_incomplete_s3_auth(path):
-    """Emit actionable warnings when /vsis3 is used without common auth/SSL settings."""
-
-    if not _is_vsis3_path(path):
-        return
-
-    key = os.environ.get("AWS_ACCESS_KEY_ID")
-    secret = os.environ.get("AWS_SECRET_ACCESS_KEY")
-    if not key or not secret:
-        _logger.warning(
-            "S3 path detected but AWS credentials seem incomplete. "
-            "Expected AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in environment."
-        )
-
-    ssl_cert = os.environ.get("SSL_CERT_FILE") or os.environ.get("CURL_CA_BUNDLE")
-    if not ssl_cert:
-        _logger.warning(
-            "S3 path detected but no SSL cert bundle configured. "
-            "If you encounter TLS/SSL errors in Docker, set SSL_CERT_FILE or CURL_CA_BUNDLE."
-        )
-
-
-@contextmanager
-def _open_raster(path, mode="r"):
-    """Open local or /vsis3 raster with optional explicit GDAL S3 environment."""
-
-    if _is_vsis3_path(path):
-        _warn_if_incomplete_s3_auth(path)
-        with rio.Env(**_build_gdal_s3_env()):
-            with rio.open(path, mode) as src:
-                yield src
-    else:
-        with rio.open(path, mode) as src:
-            yield src
-
-
-def _ogr_open_checked(path):
-    """Open a vector file with ogr, raising if it is missing/unreadable or empty.
-    """
-
-    gdal.ErrorReset()
-    if _is_vsis3_path(path):
-        _warn_if_incomplete_s3_auth(path)
-        _logger = logging.getLogger("BAS PROCESSING")
-        _logger.info(f"Try to open {path}")
-        with rio.Env(**_build_gdal_s3_env()):
-            info = ogr.Open(path)
-    else:
-        info = ogr.Open(path)
-
-    if info is None:
-        error = gdal.GetLastErrorMsg()
-        detail = f" GDAL: {error}" if error else ""
-        raise FileExistsError(f"Input {path} file could not be read.{detail}")
-
-    layer = info.GetLayer(0)
-    if layer is None:
-        raise FileExistsError(f"Input {path} contains no readable vector layer.")
-
-    if layer.GetFeatureCount() == 0:
-        raise FileExistsError(f"Input {path} file contains no features.")
-
-    return info
 
 # Config BAS
 DCT_CONFIG_O = {
@@ -322,10 +216,11 @@ class WaterMaskCHM(WaterMask):
         # Instanciate object
         klass = WaterMaskCHM()
         klass.str_provider = "SurfWater"
+        surfwater_tif = normalize_s3_path(surfwater_tif)
         klass.str_fpath_infile = surfwater_tif
 
         # Set watermask rasterfile
-        if not surfwater_tif.startswith("/vsis3") and not os.path.isfile(surfwater_tif):
+        if not is_s3_path(surfwater_tif) and not os.path.isfile(surfwater_tif):
             _logger.error("Watermask.from_surfwater: Input tif file does not exist..")
             raise FileExistsError("Input tif file does not exist..")
 
@@ -336,7 +231,7 @@ class WaterMaskCHM(WaterMask):
         # Set raster coordinate system
         klass.coordsyst = "proj"
 
-        with _open_raster(surfwater_tif, "r") as src:
+        with open_raster(surfwater_tif, "r") as src:
 
             klass.crs = src.crs
             klass.crs_epsg = src.crs.to_epsg()
@@ -465,16 +360,14 @@ class WidthProcessor:
         _logger.info("Instanciate WidthProcessor")
 
         # Normalize s3:// URIs to GDAL's /vsis3/ virtual filesystem paths
-        str_watermask_tif = _s3_to_vsis3(str_watermask_tif)
-        str_reaches_shp = _s3_to_vsis3(str_reaches_shp)
-        str_nodes_shp = _s3_to_vsis3(str_nodes_shp)
+        str_watermask_tif = normalize_s3_path(str_watermask_tif)
+        str_reaches_shp = normalize_s3_path(str_reaches_shp)
+        str_nodes_shp = normalize_s3_path(str_nodes_shp)
 
         # Check inputs
         if str_watermask_tif is None:
             raise ValueError("Missing watermask GeoTiff input file")
-        if not str_watermask_tif.startswith("/vsis3") and not os.path.isfile(
-            str_watermask_tif
-        ):
+        if not is_s3_path(str_watermask_tif) and not os.path.isfile(str_watermask_tif):
             raise FileExistsError("Input watermask GeoTiff does not exist")
         if str_datetime is None:
             raise ValueError("Missing scene datetime information input")
@@ -488,11 +381,8 @@ class WidthProcessor:
             )
         if str_reaches_shp is None:
             raise ValueError("Missing reaches shapefile input")
-        _ogr_open_checked(str_reaches_shp)
-
-        _ogr_open_checked(str_nodes_shp)
-
-        _logger.info("Input checked")
+        if str_nodes_shp is None:
+            raise ValueError("Missing nodes shapefile input")
 
         # Set attributes from inputs
         self.f_watermask_in = str_watermask_tif
@@ -503,8 +393,13 @@ class WidthProcessor:
         _logger.info("Attributes from inputs set")
 
         # Derive other attributes
-        self.gdf_reaches = gpd.read_file(self.reaches_shp)
-        self.gdf_nodes = gpd.read_file(self.nodes_shp)
+        self.gdf_reaches = read_vector(self.reaches_shp)
+        self.gdf_nodes = read_vector(self.nodes_shp)
+        if self.gdf_reaches.empty:
+            raise FileExistsError(f"Input {self.reaches_shp} file contains no features.")
+        if self.gdf_nodes.empty:
+            raise FileExistsError(f"Input {self.nodes_shp} file contains no features.")
+        _logger.info("Input checked")
         _logger.info("Attributes derived from inputs set")
 
         # Initiate future computed attributes
@@ -527,7 +422,7 @@ class WidthProcessor:
         _logger = logging.getLogger("WidthProcessing.preprocessing")
 
         # Get coordinate system from watermask
-        with _open_raster(self.f_watermask_in, "r") as src:
+        with open_raster(self.f_watermask_in, "r") as src:
             crs_wm_in = src.crs
 
         # Instanciate RiverGeom object
@@ -665,7 +560,7 @@ class WidthProcessor:
 
             # Set waterbody mask and output directory
             if str_type_clean == "waterbodies":
-                gdf_waterbodies = gpd.read_file(str_pekel_shp)
+                gdf_waterbodies = read_vector(str_pekel_shp)
                 dct_cfg_o["clean"]["gdf_waterbodies"] = gdf_waterbodies
             dct_cfg_o["clean"]["fpath_wrkdir"] = out_dir
             dct_cfg_o["label"]["fpath_wrkdir"] = out_dir
@@ -853,7 +748,7 @@ class WidthProcessor:
         self.gdf_nodescale_widths["valid"] = np.uint8(0)
     
         # NODATA FROM WATERMASK
-        with _open_raster(self.f_watermask_in, "r") as src:
+        with open_raster(self.f_watermask_in, "r") as src:
 
             band = src.read(1)
             nodata_mask = (band == 255)
@@ -1236,20 +1131,18 @@ def process_single_scene(
     _logger.info("=== Processing watermask: " + str_watermask_tif + " === : start\n")
 
     # Normalize s3:// URIs to GDAL's /vsis3/ virtual filesystem paths
-    str_watermask_tif = _s3_to_vsis3(str_watermask_tif)
-    str_reaches_shp = _s3_to_vsis3(str_reaches_shp)
-    str_nodes_shp = _s3_to_vsis3(str_nodes_shp)
+    str_watermask_tif = normalize_s3_path(str_watermask_tif)
+    str_reaches_shp = normalize_s3_path(str_reaches_shp)
+    str_nodes_shp = normalize_s3_path(str_nodes_shp)
 
     # Watermask filename to process
-    if not str_watermask_tif.startswith("/vsis3") and not os.path.isfile(
-        str_watermask_tif
-    ):
+    if not is_s3_path(str_watermask_tif) and not os.path.isfile(str_watermask_tif):
         _logger.error(
             "Watermask file '{}' seems not to exist..".format(str_watermask_tif)
         )
     # str_scn_name = os.path.basename(str_watermask_tif).split(".")[0]
 
-    if str_watermask_tif.startswith("/vsis3"):
+    if is_s3_path(str_watermask_tif):
         _logger.info(f"Watermask {str_watermask_tif} will be read from datalake")
 
     # Width processing
