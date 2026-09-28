@@ -750,7 +750,7 @@ def example_10():
             "attr_nodepx": "x_proj",
             "attr_nodepy": "y_proj",
             "attr_tolerance_dist": "tol_dist",
-            "attr_meander_length": "meand_len",
+            "attr_meander_length": "meander_length",
             "attr_sinuosity": "sinuosity",
             "flt_tol_len": 0.05,
             "flt_tol_dist": "tol_dist",

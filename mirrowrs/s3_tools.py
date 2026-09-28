@@ -80,6 +80,21 @@ def open_raster(path, mode="r", **kwargs):
             yield dataset
 
 
+@contextmanager
+def _pyogrio_config_options(options):
+    import pyogrio
+
+    previous = {
+        key: pyogrio.get_gdal_config_option(key)
+        for key in options
+    }
+    try:
+        pyogrio.set_gdal_config_options(options)
+        yield
+    finally:
+        pyogrio.set_gdal_config_options(previous)
+
+
 def read_vector(path, **kwargs):
     """Read a local or S3 vector dataset as a GeoDataFrame.
 
@@ -90,9 +105,9 @@ def read_vector(path, **kwargs):
     path = normalize_s3_path(path)
     if is_s3_path(path):
         _warn_if_incomplete_s3_auth(path)
-    if is_s3_path(path):
         options = build_gdal_s3_env()
         options.update(kwargs.pop("config_options", {}))
         kwargs.setdefault("engine", "pyogrio")
-        return gpd.read_file(path, config_options=options, **kwargs)
+        with _pyogrio_config_options(options):
+            return gpd.read_file(path, **kwargs)
     return gpd.read_file(path, **kwargs)
