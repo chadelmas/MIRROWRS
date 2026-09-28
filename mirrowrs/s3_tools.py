@@ -83,13 +83,14 @@ def open_raster(path, mode="r", **kwargs):
 def read_vector(path, **kwargs):
     """Read a local or S3 vector dataset as a GeoDataFrame.
 
-    S3 reads use pyogrio explicitly so GDAL options are applied to the driver
-    that performs the read. Credentials remain in the process environment.
+    S3 options are passed to pyogrio, which the project image builds against
+    the system GDAL installation.
     """
 
     path = normalize_s3_path(path)
     if is_s3_path(path):
         _warn_if_incomplete_s3_auth(path)
+    if is_s3_path(path):
         options = build_gdal_s3_env()
         options.update(kwargs.pop("config_options", {}))
         kwargs.setdefault("engine", "pyogrio")
