@@ -77,11 +77,16 @@ def _build_gdal_s3_env():
         "CURL_CA_BUNDLE": "CURL_CA_BUNDLE",
         "AWS_CA_BUNDLE": "AWS_CA_BUNDLE"
     }
-    return {
+    gdal_env = {
         gdal_key: os.environ[env_key]
         for gdal_key, env_key in env_map.items()
         if os.environ.get(env_key)
     }
+    if "AWS_S3_ENDPOINT" in gdal_env:
+        gdal_env.setdefault(
+            "AWS_VIRTUAL_HOSTING", os.environ.get("AWS_VIRTUAL_HOSTING", "FALSE")
+        )
+    return gdal_env
 
 
 def _warn_if_incomplete_s3_auth(path):
